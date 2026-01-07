@@ -20,10 +20,10 @@ export class User {
   @Prop({ default: null })
   hashedRt: string; 
 
-  // 👇 Yahan Correction ki hai
+  
   @Prop({ 
     type: String, 
-    enum: UserRole,        // Direct Enum pass karo (Errors kam honge)
+    enum: UserRole,        
     default: UserRole.USER // Default value bhi Enum se lo
   })
   role: string;

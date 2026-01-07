@@ -1,4 +1,4 @@
-import { IsEmail, IsNotEmpty , IsString , MinLength } from "class-validator";
+import { IsEmail, IsNotEmpty , IsOptional, IsString , MinLength } from "class-validator";
 
 export class AuthDto{
     @IsEmail()
@@ -9,4 +9,8 @@ export class AuthDto{
     @IsNotEmpty()
     @MinLength(6, {message : 'Password must be at least 6 characters long!'})
     password: string;
+
+    @IsString()
+    @IsOptional() //ye optional hai bs admin bnane ke liye chahiye
+    adminSecret?: string;
 }

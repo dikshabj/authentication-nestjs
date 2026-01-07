@@ -7,8 +7,12 @@ import { Injectable, ForbiddenException } from '@nestjs/common';
 export class RtStrategy extends PassportStrategy(Strategy, 'jwt-refresh') {
   constructor() {
     super({
-      jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
-      secretOrKey: 'RT_SECRET', // 👈 Updated as requested
+      jwtFromRequest: ExtractJwt.fromExtractors([
+        (request: Request)=>{
+          return request?.cookies?.refresh_token;
+        },
+      ]),
+      secretOrKey: 'RT_SECRET', //  Updated as requested
       passReqToCallback: true,
     });
   }

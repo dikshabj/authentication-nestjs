@@ -1,4 +1,4 @@
-import { Body, Controller, Get, HttpCode, HttpStatus, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, HttpStatus, Post, Res, UseGuards } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { AuthDto } from './dto/auth.dto';
 import { Tokens } from './types/tokens.type';
@@ -10,6 +10,8 @@ import { Public } from 'src/common/decorators/public.decorator';
 import { RolesGuard } from 'src/common/guards/roles.guard';
 import { Roles } from 'src/common/decorators/roles.decorator';
 import { UserRole } from 'src/schemas/user.schema';
+import { AuthResponse } from './types/auth-response.type';
+import type { Response, Request } from 'express';
 
 @Controller('auth')
 export class AuthController {
@@ -18,26 +20,40 @@ export class AuthController {
   @Public()
   @Post('signup')
   @HttpCode(HttpStatus.CREATED)
-  signup(@Body() dto: AuthDto): Promise<Tokens> {
+  signup(@Body() dto: AuthDto): Promise<AuthResponse> {
     return this.authService.signup(dto);
   }
 
   @Public()
   @Post('signin')
   @HttpCode(HttpStatus.OK)
-  signin(@Body() dto: AuthDto): Promise<Tokens> {
-    return this.authService.signin(dto);
+  async signin(@Body() dto: AuthDto,
+ @Res({passthrough : true})response : Response) {
+    const result = await this.authService.signin(dto);
+
+    //set cookies
+    this.setTokenCookies(response, result.tokens);
+
+    return{
+      message: 'Login successful',
+      user : result.user
+    }
   }
 
-  // 🔐 Protected by AtGuard (Global or Local)
+  //  Protected by AtGuard (Global or Local)
   @UseGuards(AtGuard)
   @Post('logout')
   @HttpCode(HttpStatus.OK)
-  logout(@GetCurrentUserId() userId: string) {
-    return this.authService.logout(userId);
+  async logout(@GetCurrentUserId() userId: string,
+@Res({passthrough: true}) response : Response) {
+    await this.authService.logout(userId);
+
+    this.clearTokenCookies(response);
+
+    return {message : 'Logged out!'}
   }
 
-  // 🔐 Protected by RtGuard (Use Refresh Token in Header)
+  //  Protected by RtGuard (Use Refresh Token in Header)
   @Public() // RT Guard handles security, so we can mark Public to bypass Global AtGuard if set
   @UseGuards(RtGuard)
   @Post('refresh')
@@ -49,7 +65,7 @@ export class AuthController {
     return this.authService.refreshTokens(userId, refreshToken);
   }
 
-  // 🔐 Protected by AtGuard
+  //  Protected by AtGuard
   @UseGuards(AtGuard)
   @Get('profile')
   getProfile(@GetCurrentUserId() userId: string) {
@@ -63,4 +79,28 @@ export class AuthController {
   getAdminData() {
     return { message: 'You are an admin!' };
   }
+
+  //helper functions
+
+  private setTokenCookies(response: Response, tokens: any) {
+    response.cookie('access_token', tokens.access_token, {
+      httpOnly: true,
+      secure: false, // Prod mein true
+      sameSite: 'lax',
+      expires: new Date(Date.now() + 15 * 60 * 1000),
+    });
+
+    response.cookie('refresh_token', tokens.refresh_token, {
+      httpOnly: true,
+      secure: false,
+      sameSite: 'lax',
+      expires: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+    });
+  }
+
+  private clearTokenCookies(response: Response) {
+    response.clearCookie('access_token');
+    response.clearCookie('refresh_token');
+  }
+
 }
